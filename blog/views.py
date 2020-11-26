@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.contrib.auth.models import User
+from django.core.paginator import Paginator
 
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticatedOrReadOnly, IsAuthenticated
@@ -8,8 +9,8 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 
-from .serializer import BlogSerializer
-from .models import Blog
+from .serializer import BlogSerializer, TagSerializer
+from .models import Blog, Tag
 
 
 @api_view(['POST'])
@@ -45,6 +46,7 @@ def signUp(request):
 @api_view(['POST'])
 def getToken(request):
     data = request.data
+    print(data)
     if 'email' in data and 'password' in data:
         # all valid credentials are there
         try:
@@ -122,8 +124,48 @@ def newUserBlog(request):
 
 @api_view(['GET'])
 def getBlogs(request):
-    blogs = BlogSerializer(Blog.objects.all(), many=True)
-    print(blogs)
+    blogs = Blog.objects.all()
+    pageObj = Paginator(blogs, 6)
+    pageNo = int(request.GET.get('pageNo')) if request.GET.get('pageNo') else 1
+    print(pageNo + pageObj.count)
+    if pageNo > pageObj.count:
+        return Response({
+            'error': 'invalid_page_count'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    blogs = BlogSerializer(pageObj.page(pageNo), many=True)
+    tags = TagSerializer(Tag.objects.all().distinct(), many=True)
     return Response({
-        'blogs': blogs.data
+        'blogs': blogs.data,
+        'totalPages': pageObj.num_pages,
+        'totalBlogs': pageObj.count,
+        'tags': tags.data
     })
+
+
+@api_view(['GET'])
+def getBlogsFromTags(request):
+    tags = request.GET.get('tags').split(',')
+    print('tags', tags)
+    print('-----------------------------')
+    tagsObj = Tag.objects.filter(name__in=tags)
+    print(tagsObj)
+    blogs = Blog.objects.all()
+    for i in tagsObj:
+        blogs = blogs.filter(tags__name=i.name)
+    blogs = BlogSerializer(blogs, many=True)
+    return Response({'blogs': blogs.data})
+
+
+@api_view(['GET'])
+def getBlogFromId(request, id):
+    try:
+        blog = Blog.objects.get(id=id)
+    except:
+        return Response({
+            'error': 'invalid_id'
+        })
+    else:
+        blog = BlogSerializer(blog)
+        return Response({
+            'blog': blog.data
+        })

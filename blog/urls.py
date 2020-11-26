@@ -9,7 +9,9 @@ urlpatterns = [
     path('get-token', getToken),
     path('get-user-blogs', getUserBlogs),
     path('new-user-blog', newUserBlog),
-    path('get-all-blogs', getBlogs)
+    path('get-all-blogs', getBlogs),
+    path('get-blogs-from-tags', getBlogsFromTags),
+    path('get-blog-from-id/<int:id>', getBlogFromId)
 ]
 
 if settings.DEBUG:
