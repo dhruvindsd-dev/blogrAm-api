@@ -46,7 +46,6 @@ def signUp(request):
 @api_view(['POST'])
 def getToken(request):
     data = request.data
-    print(data)
     if 'email' in data and 'password' in data:
         # all valid credentials are there
         try:
@@ -101,8 +100,6 @@ def newUserBlog(request):
     # if new tag then create a new tag and then link it
     # send a success create response
     data = request.data
-    print(data)
-    print(Blog.objects.filter(user=request.user))
     if 'title' in data and 'subtitle' in data and 'content' in data:
         blog = Blog.objects.create(
             title=data['title'],
@@ -127,8 +124,7 @@ def getBlogs(request):
     blogs = Blog.objects.all()
     pageObj = Paginator(blogs, 6)
     pageNo = int(request.GET.get('pageNo')) if request.GET.get('pageNo') else 1
-    print(pageNo + pageObj.count)
-    if pageNo > pageObj.count:
+    if pageNo > pageObj.num_pages - 1:
         return Response({
             'error': 'invalid_page_count'
         }, status=status.HTTP_400_BAD_REQUEST)
@@ -145,15 +141,22 @@ def getBlogs(request):
 @api_view(['GET'])
 def getBlogsFromTags(request):
     tags = request.GET.get('tags').split(',')
-    print('tags', tags)
-    print('-----------------------------')
     tagsObj = Tag.objects.filter(name__in=tags)
-    print(tagsObj)
     blogs = Blog.objects.all()
     for i in tagsObj:
         blogs = blogs.filter(tags__name=i.name)
-    blogs = BlogSerializer(blogs, many=True)
-    return Response({'blogs': blogs.data})
+    pageObj = Paginator(blogs, 6)
+    pageNo = int(request.GET.get('pageNo')) if request.GET.get('pageNo') else 1
+    if pageNo > pageObj.num_pages - 1:
+        return Response({
+            'error': 'invalid_page_count'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    blogs = BlogSerializer(pageObj.page(pageNo), many=True)
+    tags = tags = TagSerializer(Tag.objects.all().distinct(), many=True)
+    return Response({'blogs': blogs.data,
+                     'totalPages': pageObj.num_pages,
+                     'tags': tags.data})
 
 
 @api_view(['GET'])
